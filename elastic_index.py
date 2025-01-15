@@ -146,11 +146,10 @@ class Index:
             "from": start,
             # "_source": ["key", "resourceTypes", "researchActivities", "researchDomains"]
         })
-        print(response)
 
         return {"amount": response["hits"]["total"]["value"],
                 "pages": math.ceil(response["hits"]["total"]["value"] / length),
-                "items": [{"key": item["_id"], "title": item["_source"]["title"], "intro": item["_source"]["intro"]} for item in response["hits"]["hits"]]}
+                "items": [{"key": item["_id"], "title": item["_source"]["title"], "intro": item["_source"].get("intro", None)} for item in response["hits"]["hits"]]}
 
     # def browse(self, page, length, orderFieldName, searchvalues):
     #     int_page = int(page)

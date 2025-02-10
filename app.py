@@ -84,9 +84,17 @@ def typeinfo():
 @app.get('/detail')
 def get_detail():
     rec = request.args.get("rec")
-    file=f"/data/{rec}_processed.json"
-    with open(file,"r") as f:
-        return jsonify(json.load(f))
+    try:
+        file=f"/data/{rec}_processed.json"
+        with open(file,"r") as f:
+            return jsonify(json.load(f))
+    except FileNotFoundError:
+        try:
+            file = f"/data/{rec}.json"
+            with open(file,"r") as f:
+                return jsonify(json.load(f))
+        except Exception as e:
+            return jsonify({"error":str(e)})
 
 #Start main program
 

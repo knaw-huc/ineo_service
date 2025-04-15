@@ -8,8 +8,10 @@ import subprocess
 
 
 app = Flask(__name__)
-cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
-CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}})
+# cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
+# CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}})
+# Allow all origins
+CORS(app, supports_credentials=True)
 
 config = {
     "url" : environ.get("ELASTICSEARCH_HOST"),

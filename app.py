@@ -4,14 +4,13 @@ from elastic_index import Index
 import requests
 from os import environ
 from flask_cors import CORS
-import subprocess
 
 
 app = Flask(__name__)
-# cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
-# CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}})
+cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
+CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}})
 # Allow all origins
-CORS(app, supports_credentials=True)
+# CORS(app, supports_credentials=True)
 
 config = {
     "url" : environ.get("ELASTICSEARCH_HOST"),
@@ -92,9 +91,13 @@ def get_detail():
             return jsonify(json.load(f))
     except FileNotFoundError:
         try:
-            file = f"/data/{rec}.json"
-            with open(file,"r") as f:
-                return jsonify(json.load(f))
+            doc = index.get_doc_by_field("id", rec)
+            result = [
+                {
+                    "document": doc,
+                }
+            ]
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error":str(e)})
 

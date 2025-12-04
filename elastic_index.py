@@ -12,6 +12,22 @@ class Index:
         self.client = Elasticsearch([{"host": self.config["url"], "port": self.config["port"]}])
         # self.client = Elasticsearch()
 
+    def get_doc_by_field(self, field, value) -> dict | None:
+        response = self.client.search(
+            index=self.config["index"],
+            body={
+                "query": {
+                    "term": {f"{field}.keyword": value}
+                }
+            }
+        )
+        if response["hits"]["total"]["value"] == 1:
+            result = response["hits"]["hits"][0]["_source"]
+            return result
+        else:
+            return None
+
+
     def no_case(self, str_in):
         str = str_in.strip()
         ret_str = ""

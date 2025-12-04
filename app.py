@@ -1,9 +1,18 @@
 import json
+import logging
 import requests
 from os import environ
 from flask_cors import CORS
 from elastic_index import Index
 from flask import Flask, request, jsonify
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__)
 cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
@@ -12,9 +21,12 @@ CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}
 # CORS(app, supports_credentials=True)
 
 config = {
-    "url" : environ.get("ELASTICSEARCH_HOST"),
-    "port" : environ.get("ELASTICSEARCH_PORT"),
-    "index" : environ.get("ELASTICSEARCH_INDEX"),
+    "scheme": environ.get("ELASTICSEARCH_SCHEME"),
+    "url": environ.get("ELASTICSEARCH_HOST"),
+    "port": environ.get("ELASTICSEARCH_PORT"),
+    "index": environ.get("ELASTICSEARCH_INDEX"),
+    "ineo_user": environ.get("ELASTICSEARCH_USERNAME"),
+    "ineo_password": environ.get("ELASTICSEARCH_PASSWORD"),
 }
 
 index = Index(config)
@@ -28,17 +40,19 @@ def after_request(response):
     response.headers['Content-type'] = 'application/json'
     return response
 
+
 @app.route("/")
 def hello_world():
     retStruc = {"app": "Procrustus service", "version": "0.1"}
     return json.dumps(retStruc)
 
 
-@app.route("/facet", methods=['GET','POST'])
+@app.route("/facet", methods=['GET', 'POST'])
 def get_facet():
     struc = request.get_json()
     ret_struc = index.get_facet(struc["name"], struc["amount"], struc["filter"], struc["searchvalues"])
     return json.dumps(ret_struc)
+
 
 @app.route("/nested-facet", methods=['GET'])
 def get_nested_facet():
@@ -48,6 +62,7 @@ def get_nested_facet():
     ret_struc = index.get_nested_facet(facet + ".keyword", amount, facet_filter)
     return json.dumps(ret_struc)
 
+
 @app.route("/filter-facet", methods=['GET'])
 def get_filter_facet():
     facet = request.args.get("name")
@@ -56,13 +71,13 @@ def get_filter_facet():
     ret_struc = index.get_filter_facet(facet + ".keyword", amount, facet_filter)
     return json.dumps(ret_struc)
 
+
 @app.route("/browse", methods=['POST'])
 def browse():
     struc = request.get_json()
     # ret_struc = index.browse(struc["page"], struc["page_length"], struc["sortorder"] + ".keyword", struc["searchvalues"])
     ret_struc = index.browse(struc["page"], struc["page_length"], struc["searchvalues"])
     return json.dumps(ret_struc)
-
 
 
 @app.get('/typeinfo')
@@ -80,17 +95,16 @@ def typeinfo():
         return jsonify(ok=False, url=url, content_type=None)
 
 
-
 @app.get('/detail')
 def get_detail():
     rec = request.args.get("rec")
     try:
-        file=f"/data/{rec}_processed.json"
-        with open(file,"r") as f:
+        file = f"/data/{rec}_processed.json"
+        with open(file, "r") as f:
             return jsonify(json.load(f))
     except FileNotFoundError:
         try:
-            doc = index.get_doc_by_field("id", rec)
+            doc = index.get_doc_by_field("document.id", rec)
             result = [
                 {
                     "document": doc,
@@ -98,10 +112,10 @@ def get_detail():
             ]
             return jsonify(result)
         except Exception as e:
-            return jsonify({"error":str(e)})
+            return jsonify({"error": str(e)})
 
-#Start main program
+
+# Start main program
 
 if __name__ == '__main__':
     app.run()
-

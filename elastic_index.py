@@ -9,8 +9,14 @@ class Index:
     def __init__(self, config):
         self.config = config
         # self.es = Elasticsearch([{"host": self.config["url"], "port": self.config["port"]}])
-        self.client = Elasticsearch([{"host": self.config["url"], "port": self.config["port"]}])
-        # self.client = Elasticsearch()
+        self.client = Elasticsearch(
+            hosts=[f"{self.config['scheme']}://{self.config['url']}:{self.config['port']}"],
+            basic_auth=(self.config["ineo_user"], self.config["ineo_password"]),
+            verify_certs=False,
+            request_timeout=30
+        )
+        # print(f"Connected to Elasticsearch at {self.config['scheme']}://{self.config['url']}:{self.config['port']}\n with user {self.config['ineo_user']}, password {self.config['ineo_password']}")
+
 
     def get_doc_by_field(self, field, value) -> dict | None:
         response = self.client.search(
@@ -22,7 +28,7 @@ class Index:
             }
         )
         if response["hits"]["total"]["value"] == 1:
-            result = response["hits"]["hits"][0]["_source"]
+            result = response["hits"]["hits"][0]["_source"]["document"]
             return result
         else:
             return None
@@ -166,7 +172,7 @@ class Index:
         # print(json.dumps(response["hits"]["hits"][0], indent=4))
         return {"amount": response["hits"]["total"]["value"],
                 "pages": math.ceil(response["hits"]["total"]["value"] / length),
-                "items": [{"key": item["_source"]["id"], "title": item["_source"]["title"], "intro": item["_source"].get("intro", None), "tags": item["_source"]["properties"].get("resourceTypes", None)} for item in response["hits"]["hits"]]}
+                "items": [{"key": item["_source"]["document"]["id"], "title": item["_source"]["document"]["title"], "intro": item["_source"]["document"].get("intro", None), "tags": item["_source"]["document"]["properties"].get("resourceTypes", None)} for item in response["hits"]["hits"]]}
 
     # def browse(self, page, length, orderFieldName, searchvalues):
     #     int_page = int(page)

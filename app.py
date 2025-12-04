@@ -1,10 +1,9 @@
-from flask import Flask, request, jsonify
 import json
-from elastic_index import Index
 import requests
 from os import environ
 from flask_cors import CORS
-
+from elastic_index import Index
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]

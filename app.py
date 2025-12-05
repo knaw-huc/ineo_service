@@ -50,31 +50,45 @@ def hello_world():
 @app.route("/facet", methods=['GET', 'POST'])
 def get_facet():
     struc = request.get_json()
-    ret_struc = index.get_facet(struc["name"], struc["amount"], struc["filter"], struc["searchvalues"])
+    new_searchvalues = []
+    for d in struc["searchvalues"]:
+        if "field" in d and isinstance(d["field"], str) and d["field"].startswith("properties."):
+            d["field"] = f"document.{d['field']}"
+        new_searchvalues.append(d)
+
+    struc["searchvalues"] = new_searchvalues
+    ret_struc = index.get_facet(f"document.{struc["name"]}", struc["amount"], struc["filter"], struc["searchvalues"])
     return json.dumps(ret_struc)
 
 
-@app.route("/nested-facet", methods=['GET'])
-def get_nested_facet():
-    facet = request.args.get("name")
-    amount = request.args.get("amount")
-    facet_filter = request.args.get("filter")
-    ret_struc = index.get_nested_facet(facet + ".keyword", amount, facet_filter)
-    return json.dumps(ret_struc)
+# @app.route("/nested-facet", methods=['GET'])
+# def get_nested_facet():
+#     facet = request.args.get("name")
+#     amount = request.args.get("amount")
+#     facet_filter = request.args.get("filter")
+#     ret_struc = index.get_nested_facet(facet + ".keyword", amount, facet_filter)
+#     return json.dumps(ret_struc)
 
 
-@app.route("/filter-facet", methods=['GET'])
-def get_filter_facet():
-    facet = request.args.get("name")
-    amount = request.args.get("amount")
-    facet_filter = request.args.get("filter")
-    ret_struc = index.get_filter_facet(facet + ".keyword", amount, facet_filter)
-    return json.dumps(ret_struc)
+# @app.route("/filter-facet", methods=['GET'])
+# def get_filter_facet():
+#     facet = request.args.get("name")
+#     amount = request.args.get("amount")
+#     facet_filter = request.args.get("filter")
+#     ret_struc = index.get_filter_facet(facet + ".keyword", amount, facet_filter)
+#     return json.dumps(ret_struc)
 
 
 @app.route("/browse", methods=['POST'])
 def browse():
     struc = request.get_json()
+    new_searchvalues = []
+    for d in struc["searchvalues"]:
+        if "field" in d and isinstance(d["field"], str) and d["field"].startswith("properties."):
+            d["field"] = f"document.{d['field']}"
+        new_searchvalues.append(d)
+
+    struc["searchvalues"] = new_searchvalues
     # ret_struc = index.browse(struc["page"], struc["page_length"], struc["sortorder"] + ".keyword", struc["searchvalues"])
     ret_struc = index.browse(struc["page"], struc["page_length"], struc["searchvalues"])
     return json.dumps(ret_struc)

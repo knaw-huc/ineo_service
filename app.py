@@ -2,23 +2,25 @@ import json
 import logging
 import requests
 from os import environ
-from flask_cors import CORS
 from elastic_index import Index
 from flask import Flask, request, jsonify
 
-# Configure logging
+# Configure logging based on environment
+ENVIRONMENT = environ.get('FLASK_ENV', 'development')
+LOG_LEVEL = environ.get('LOG_LEVEL', 'INFO' if ENVIRONMENT == 'development' else 'WARNING')
+
+# Production uses WARNING level, development uses INFO
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="%(asctime)s %(levelname)s %(name)s %(message)s"
 )
 logger = logging.getLogger(__name__)
+logger.info(f"Logging initialized - Environment: {ENVIRONMENT}, Log Level: {LOG_LEVEL}")
 
 
 app = Flask(__name__)
-cors_origins = [item for item in environ.get('FRONTEND_HOST', "").split(",") if item]
-CORS(app, supports_credentials=True, resources={r'/*': {'origins': cors_origins}})
-# Allow all origins
-# CORS(app, supports_credentials=True)
 
 config = {
     "scheme": environ.get("ELASTICSEARCH_SCHEME"),
@@ -32,12 +34,46 @@ config = {
 index = Index(config)
 
 
+@app.before_request
+def before_request():
+    method = request.method
+    origin = request.headers.get('Origin')
+    logger.debug(f"[BEFORE_REQUEST] Incoming {method} request from origin: {origin}")
+    
+    if method == 'OPTIONS':
+        logger.debug(f"[BEFORE_REQUEST] Creating OPTIONS response for preflight request")
+        response = app.make_response(('', 204))
+        # Use the origin if present, otherwise allow all origins
+        response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        logger.debug(f"[BEFORE_REQUEST] OPTIONS response status: {response.status_code}, origin: {response.headers.get('Access-Control-Allow-Origin')}")
+        return response
+
+
 @app.after_request
 def after_request(response):
-    # response.headers['Access-Control-Allow-Origin'] = '*'
-    # response.headers['Access-Control-Allow-Headers'] = '*'
-    # response.headers['Access-Control-Allow-Methods'] = 'POST, GET, OPTIONS'
-    response.headers['Content-type'] = 'application/json'
+    origin = request.headers.get('Origin')
+    logger.debug(f"[AFTER_REQUEST] Processing response status: {response.status_code}, origin: {origin}")
+    
+    # Always set CORS headers
+    if origin:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        response.headers['Access-Control-Allow-Origin'] = '*'
+    
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    
+    # Only add Content-type for responses with a body
+    if response.status_code not in [204, 304]:
+        if 'Content-Type' not in response.headers:
+            response.headers['Content-Type'] = 'application/json'
+    
+    logger.debug(f"[AFTER_REQUEST] Final response status: {response.status_code}, CORS header: {response.headers.get('Access-Control-Allow-Origin')}")
     return response
 
 
@@ -47,8 +83,10 @@ def hello_world():
     return json.dumps(retStruc)
 
 
-@app.route("/facet", methods=['GET', 'POST'])
+@app.route("/facet", methods=['GET', 'POST', 'OPTIONS'])
 def get_facet():
+    if request.method == 'OPTIONS':
+        return '', 204
     struc = request.get_json()
     new_searchvalues = []
     for d in struc["searchvalues"]:
@@ -79,8 +117,12 @@ def get_facet():
 #     return json.dumps(ret_struc)
 
 
-@app.route("/browse", methods=['POST'])
+@app.route("/browse", methods=['POST', 'OPTIONS'])
 def browse():
+    logger.debug(f"[BROWSE] Received {request.method} request")
+    if request.method == 'OPTIONS':
+        logger.debug(f"[BROWSE] Returning early for OPTIONS")
+        return '', 204
     struc = request.get_json()
     new_searchvalues = []
     for d in struc["searchvalues"]:
@@ -129,7 +171,13 @@ def get_detail():
             return jsonify({"error": str(e)})
 
 
-# Start main program
+@app.errorhandler(404)
+def not_found(error):
+    logger.error(f"[ERROR] 404 Not Found - Path: {request.path}, Method: {request.method}")
+    return jsonify({"error": "Not found"}), 404
 
-if __name__ == '__main__':
-    app.run()
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    logger.error(f"[ERROR] 405 Method Not Allowed - Path: {request.path}, Method: {request.method}")
+    return jsonify({"error": "Method not allowed"}), 405

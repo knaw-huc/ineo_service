@@ -9,12 +9,19 @@ class Index:
     def __init__(self, config):
         self.config = config
         # self.es = Elasticsearch([{"host": self.config["url"], "port": self.config["port"]}])
-        self.client = Elasticsearch(
-            hosts=[f"{self.config['scheme']}://{self.config['url']}:{self.config['port']}"],
-            basic_auth=(self.config["ineo_user"], self.config["ineo_password"]),
-            verify_certs=False,
-            request_timeout=30
-        )
+        if self.config["ineo_user"] is not None and self.config["ineo_user"]:
+            self.client = Elasticsearch(
+                hosts=[f"{self.config['scheme']}://{self.config['url']}:{self.config['port']}"],
+                basic_auth=(self.config["ineo_user"], self.config["ineo_password"]),
+                verify_certs=False,
+                request_timeout=30
+            )
+        else:
+            self.client = Elasticsearch(
+                hosts=[f"{self.config['scheme']}://{self.config['url']}:{self.config['port']}"],
+                verify_certs=False,
+                request_timeout=30
+            )
         # print(f"Connected to Elasticsearch at {self.config['scheme']}://{self.config['url']}:{self.config['port']}\n with user {self.config['ineo_user']}, password {self.config['ineo_password']}")
 
 
